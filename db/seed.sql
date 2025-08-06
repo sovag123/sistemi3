@@ -14,12 +14,12 @@ INSERT INTO location (city, postal_code, country, region) VALUES
 ('San Jose', '95101', 'USA', 'California');
 
 INSERT INTO user (username, email, password_hash, first_name, last_name, phone, primary_address, location_id) VALUES
-('john_doe', 'john@example.com', '$2b$10$CwTycUXWue0ThN9vXsNLs.MpYGtMG.JdYOL5nz.ztKEw.LjzVbL/G', 'John', 'Doe', '+1234567890', '123 Main St', 1),
-('jane_smith', 'jane@example.com', '$2b$10$CwTycUXWue0ThN9vXsNLs.MpYGtMG.JdYOL5nz.ztKEw.LjzVbL/G', 'Jane', 'Smith', '+1987654321', '456 Oak Ave', 2),
-('mike_wilson', 'mike@example.com', '$2b$10$CwTycUXWue0ThN9vXsNLs.MpYGtMG.JdYOL5nz.ztKEw.LjzVbL/G', 'Mike', 'Wilson', '+1555666777', '789 Pine Rd', 3),
-('sarah_johnson', 'sarah@example.com', '$2b$10$CwTycUXWue0ThN9vXsNLs.MpYGtMG.JdYOL5nz.ztKEw.LjzVbL/G', 'Sarah', 'Johnson', '+1444555666', '321 Elm St', 4),
-('david_brown', 'david@example.com', '$2b$10$CwTycUXWue0ThN9vXsNLs.MpYGtMG.JdYOL5nz.ztKEw.LjzVbL/G', 'David', 'Brown', '+1333444555', '654 Maple Ave', 5),
-('lisa_davis', 'lisa@example.com', '$2b$10$CwTycUXWue0ThN9vXsNLs.MpYGtMG.JdYOL5nz.ztKEw.LjzVbL/G', 'Lisa', 'Davis', '+1222333444', '987 Cedar Rd', 6);
+('john_doe', 'john@example.com', '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'John', 'Doe', '+1234567890', '123 Main St', 1),
+('jane_smith', 'jane@example.com', '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Jane', 'Smith', '+1987654321', '456 Oak Ave', 2),
+('mike_wilson', 'mike@example.com', '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Mike', 'Wilson', '+1555666777', '789 Pine Rd', 3),
+('sarah_johnson', 'sarah@example.com', '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Sarah', 'Johnson', '+1444555666', '321 Elm St', 4),
+('david_brown', 'david@example.com', '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'David', 'Brown', '+1333444555', '654 Maple Ave', 5),
+('lisa_davis', 'lisa@example.com', '$2b$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'Lisa', 'Davis', '+1222333444', '987 Cedar Rd', 6);
 
 INSERT INTO category (category_name, category_description, parent_id) VALUES
 ('Electronics', 'Electronic devices and gadgets', NULL),
@@ -159,4 +159,6 @@ INSERT INTO order_table (buyer_id, total_amount, order_status, shipping_address,
 INSERT INTO order_item (order_id, product_id, quantity, price_at_time) VALUES
 (1, 1, 1, 899.99),
 (2, 5, 1, 199.99),
-(3, 4,
+(3, 4, 1, 549.99),
+(4, 6, 1, 449.99),
+(5, 14, 1, 1299.99);

@@ -3,6 +3,8 @@ const db = require('../config/database');
 const productController = {
   getAllProducts: async (req, res) => {
     try {
+      console.log('Getting all products with query:', req.query);
+      
       const { category, search, condition, minPrice, maxPrice, location } = req.query;
       
       let query = `
@@ -10,11 +12,11 @@ const productController = {
                l.city, l.country, pi.image_url as primary_image,
                pm.model_url as model_3d
         FROM product p
-        LEFT JOIN category c ON p.category_id = c.category_id
-        LEFT JOIN user u ON p.seller_id = u.user_id
-        LEFT JOIN location l ON p.location_id = l.location_id
-        LEFT JOIN product_image pi ON p.product_id = pi.product_id AND pi.is_primary = TRUE
-        LEFT JOIN product_3d_model pm ON p.product_id = pm.product_id
+        LEFT JOIN category c ON p.category_id = c.id
+        LEFT JOIN user u ON p.seller_id = u.id
+        LEFT JOIN location l ON p.location_id = l.id
+        LEFT JOIN product_image pi ON p.id = pi.product_id AND pi.is_primary = TRUE
+        LEFT JOIN product_3d_model pm ON p.id = pm.product_id
         WHERE 1=1
       `;
       
@@ -47,9 +49,15 @@ const productController = {
       
       query += ` ORDER BY p.created_at DESC`;
       
+      console.log('Executing query:', query);
+      console.log('With params:', params);
+      
       const [products] = await db.execute(query, params);
+      console.log(`Found ${products.length} products`);
+      
       res.json(products);
     } catch (error) {
+      console.error('Error in getAllProducts:', error);
       res.status(500).json({ error: error.message });
     }
   },
@@ -57,15 +65,16 @@ const productController = {
   getProductById: async (req, res) => {
     try {
       const { id } = req.params;
+      console.log('Getting product by ID:', id);
       
       const [products] = await db.execute(`
         SELECT p.*, c.category_name, u.username as seller_name, u.email as seller_email,
                l.city, l.country, l.region
         FROM product p
-        LEFT JOIN category c ON p.category_id = c.category_id
-        LEFT JOIN user u ON p.seller_id = u.user_id
-        LEFT JOIN location l ON p.location_id = l.location_id
-        WHERE p.product_id = ?
+        LEFT JOIN category c ON p.category_id = c.id
+        LEFT JOIN user u ON p.seller_id = u.id
+        LEFT JOIN location l ON p.location_id = l.id
+        WHERE p.id = ?
       `, [id]);
       
       if (products.length === 0) {
@@ -85,7 +94,7 @@ const productController = {
       const [reviews] = await db.execute(`
         SELECT r.*, u.username as reviewer_name
         FROM review r
-        LEFT JOIN user u ON r.reviewer_id = u.user_id
+        LEFT JOIN user u ON r.reviewer_id = u.id
         WHERE r.product_id = ?
         ORDER BY r.created_at DESC
       `, [id]);
@@ -96,17 +105,23 @@ const productController = {
       
       res.json(product);
     } catch (error) {
+      console.error('Error in getProductById:', error);
       res.status(500).json({ error: error.message });
     }
   },
 
   getCategories: async (req, res) => {
     try {
+      console.log('Getting categories');
+      
       const [categories] = await db.execute(`
         SELECT * FROM category ORDER BY category_name
       `);
+      
+      console.log(`Found ${categories.length} categories`);
       res.json(categories);
     } catch (error) {
+      console.error('Error in getCategories:', error);
       res.status(500).json({ error: error.message });
     }
   }

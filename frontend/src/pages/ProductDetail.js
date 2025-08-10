@@ -29,16 +29,12 @@ const ProductDetail = () => {
     try {
       setLoading(true);
       const response = await productsAPI.getProduct(id);
-      
-      // Check if product is active (not sold)
       if (!response.data.is_active) {
         setError('This product is no longer available (already sold)');
         return;
       }
       
       setProduct(response.data);
-      
-      // Check if product is favorited by current user
       if (user) {
         checkFavoriteStatus();
       }
@@ -139,8 +135,6 @@ const ProductDetail = () => {
 
       alert(`Order successful! Order ID: ${response.data.orderId}`);
       setShowBuyModal(false);
-      
-      // Redirect to orders page or products page
       navigate('/products');
       
     } catch (error) {

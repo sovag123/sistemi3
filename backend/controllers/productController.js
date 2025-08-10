@@ -73,8 +73,6 @@ const productController = {
       const userId = req.user?.id || null;
       
       console.log('Fetching product with ID:', id, 'Viewer IP:', viewerIP, 'User ID:', userId);
-      
-      // Get product details with category and seller info
       const [productResults] = await db.execute(`
         SELECT 
           p.*,
@@ -83,7 +81,6 @@ const productController = {
           u.last_name as seller_last_name,
           u.username as seller_username,
 
-          u.country,
           CONCAT(u.first_name, ' ', u.last_name) as seller_name
         FROM product p
         LEFT JOIN category c ON p.category_id = c.id
@@ -96,22 +93,16 @@ const productController = {
       }
       
       const product = productResults[0];
-      
-      // Get product images
       const [images] = await db.execute(`
         SELECT * FROM product_image 
         WHERE product_id = ? 
         ORDER BY is_primary DESC, sort_order ASC
       `, [id]);
-      
-      // Get 3D model
       const [models] = await db.execute(`
         SELECT * FROM product_3d_model 
         WHERE product_id = ? AND is_active = TRUE
         LIMIT 1
       `, [id]);
-      
-      // Get comments (updated to use product_comment table)
       const [comments] = await db.execute(`
         SELECT 
           pc.*,
@@ -126,8 +117,6 @@ const productController = {
           pc.parent_comment_id IS NULL DESC,
           pc.created_at ASC
       `, [id]);
-      
-      // Structure comments with replies
       const structuredComments = [];
       const commentMap = new Map();
       
@@ -147,8 +136,6 @@ const productController = {
           }
         }
       });
-      
-      // Increment view count (only if not the seller viewing their own product)
       if (!userId || userId !== product.seller_id) {
         await db.execute('UPDATE product SET views_count = views_count + 1 WHERE id = ?', [id]);
         product.views_count = product.views_count + 1; // Update the returned data
@@ -156,8 +143,6 @@ const productController = {
       } else {
         console.log(`Seller viewing their own product ${id}. View count not incremented.`);
       }
-      
-      // Combine all data
       const result = {
         ...product,
         images: images,
@@ -174,14 +159,10 @@ const productController = {
       res.status(500).json({ message: 'Failed to fetch product details' });
     }
   },
-
-  // Add a new endpoint to get view stats
   getProductStats: async (req, res) => {
     try {
       const { id } = req.params;
       const userId = req.user?.id;
-      
-      // Check if user owns the product
       const [product] = await db.execute(
         'SELECT seller_id, views_count, title FROM product WHERE id = ?',
         [id]
@@ -194,8 +175,6 @@ const productController = {
       if (product[0].seller_id !== userId) {
         return res.status(403).json({ message: 'You can only view stats for your own products' });
       }
-      
-      // Get additional stats
       const [commentStats] = await db.execute(
         'SELECT COUNT(*) as total_comments FROM product_comment WHERE product_id = ?',
         [id]
@@ -226,8 +205,6 @@ const productController = {
       
       console.log('Creating product with data:', req.body);
       console.log('Files:', req.files);
-
-      // Validation
       if (!title || !product_description || !price || !category_id || !seller_id) {
         return res.status(400).json({ message: 'Missing required fields' });
       }
@@ -235,16 +212,12 @@ const productController = {
       if (!req.files || !req.files.images || req.files.images.length === 0) {
         return res.status(400).json({ message: 'At least one image is required' });
       }
-
-      // Insert product with views_count initialized to 0
       const [productResult] = await db.execute(`
         INSERT INTO product (title, product_description, price, category_id, seller_id, condition_type, views_count)
         VALUES (?, ?, ?, ?, ?, ?, 0)
       `, [title, product_description, price, category_id, seller_id, condition_type]);
 
       const productId = productResult.insertId;
-
-      // Handle images
       if (req.files.images) {
         for (let i = 0; i < req.files.images.length; i++) {
           const image = req.files.images[i];
@@ -259,8 +232,6 @@ const productController = {
           `, [productId, imagePath, isPrimary, i]);
         }
       }
-
-      // Handle 3D model
       if (req.files.model_3d && req.files.model_3d[0]) {
         const model = req.files.model_3d[0];
         const modelPath = `/uploads/models/${model.filename}`;
@@ -292,8 +263,6 @@ const productController = {
       
       console.log('Updating product with ID:', id);
       console.log('Update data:', req.body);
-      
-      // Check if product exists and user owns it
       const [existingProduct] = await db.execute('SELECT seller_id FROM product WHERE id = ?', [id]);
       
       if (existingProduct.length === 0) {
@@ -303,8 +272,6 @@ const productController = {
       if (existingProduct[0].seller_id !== parseInt(seller_id)) {
         return res.status(403).json({ message: 'You can only edit your own products' });
       }
-      
-      // Update product (views_count is preserved)
       await db.execute(`
         UPDATE product 
         SET title = ?, product_description = ?, price = ?, category_id = ?, condition_type = ?, updated_at = CURRENT_TIMESTAMP
@@ -325,8 +292,6 @@ const productController = {
       const userId = req.user.id;
       
       console.log('Deleting product with ID:', id, 'by user:', userId);
-      
-      // Check if product exists and user owns it
       const [existingProduct] = await db.execute('SELECT seller_id FROM product WHERE id = ?', [id]);
       
       if (existingProduct.length === 0) {
@@ -336,15 +301,9 @@ const productController = {
       if (existingProduct[0].seller_id !== userId) {
         return res.status(403).json({ message: 'You can only delete your own products' });
       }
-      
-      // Get all files to delete
       const [images] = await db.execute('SELECT image_url FROM product_image WHERE product_id = ?', [id]);
       const [models] = await db.execute('SELECT model_url FROM product_3d_model WHERE product_id = ?', [id]);
-      
-      // Delete the product (cascade will handle related records)
       await db.execute('DELETE FROM product WHERE id = ?', [id]);
-      
-      // Delete physical files (optional - you might want to keep them for backup)
       try {
         for (const image of images) {
           const imagePath = path.join(__dirname, '..', image.image_url);
@@ -357,7 +316,6 @@ const productController = {
         }
       } catch (fileError) {
         console.error('Error deleting files:', fileError);
-        // Don't fail the request if file deletion fails
       }
       
       res.json({ message: 'Product deleted successfully' });

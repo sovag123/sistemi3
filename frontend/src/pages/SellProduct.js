@@ -62,13 +62,10 @@ const SellProduct = () => {
   const handleModel3DChange = (e) => {
     const file = e.target.files[0];
     if (file) {
-      // Check file size (max 50MB)
       if (file.size > 50 * 1024 * 1024) {
         setError('3D model file size should be less than 50MB');
         return;
       }
-      
-      // Check file type
       const allowedTypes = ['.glb', '.gltf', '.obj', '.fbx'];
       const fileExtension = file.name.toLowerCase().substr(file.name.lastIndexOf('.'));
       
@@ -84,8 +81,6 @@ const SellProduct = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    // Validation
     if (!formData.title.trim()) {
       setError('Product title is required');
       return;
@@ -117,24 +112,16 @@ const SellProduct = () => {
 
     try {
       const submitData = new FormData();
-      
-      // Add form fields
       Object.keys(formData).forEach(key => {
         submitData.append(key, formData[key]);
       });
-      
-      // Add seller_id
       submitData.append('seller_id', user.id);
-      
-      // Add images
       images.forEach((image, index) => {
         submitData.append('images', image);
         if (index === thumbnailIndex) {
           submitData.append('thumbnail_index', index);
         }
       });
-      
-      // Add 3D model if present
       if (model3D) {
         submitData.append('model_3d', model3D);
       }
@@ -142,8 +129,6 @@ const SellProduct = () => {
       const response = await productsAPI.createProduct(submitData);
       
       setSuccess('Product listed successfully!');
-      
-      // Reset form
       setFormData({
         title: '',
         product_description: '',
@@ -154,8 +139,6 @@ const SellProduct = () => {
       setImages([]);
       setModel3D(null);
       setThumbnailIndex(0);
-      
-      // Redirect to my products after 2 seconds
       setTimeout(() => {
         navigate('/my-products');
       }, 2000);

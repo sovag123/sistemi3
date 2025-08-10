@@ -59,7 +59,6 @@ const MyProducts = () => {
         filtered = products.filter(product => product.is_active === false);
         break;
       default:
-        // 'all' - show all products
         break;
     }
     

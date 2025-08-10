@@ -2,8 +2,6 @@ const express = require('express');
 const router = express.Router();
 const db = require('../config/database');
 const { authenticateToken } = require('../middleware/auth');
-
-// Get user's favorites
 router.get('/', authenticateToken, async (req, res) => {
   try {
     const [favorites] = await db.execute(`
@@ -38,8 +36,6 @@ router.get('/', authenticateToken, async (req, res) => {
     res.status(500).json({ message: 'Failed to fetch favorites' });
   }
 });
-
-// Add product to favorites
 router.post('/add', authenticateToken, async (req, res) => {
   try {
     const { productId } = req.body;
@@ -48,8 +44,6 @@ router.post('/add', authenticateToken, async (req, res) => {
     if (!productId) {
       return res.status(400).json({ message: 'Product ID is required' });
     }
-
-    // Check if product exists and is active
     const [products] = await db.execute(
       'SELECT id, seller_id FROM product WHERE id = ? AND is_active = TRUE',
       [productId]
@@ -58,13 +52,9 @@ router.post('/add', authenticateToken, async (req, res) => {
     if (products.length === 0) {
       return res.status(404).json({ message: 'Product not found or no longer available' });
     }
-
-    // Prevent users from favoriting their own products
     if (products[0].seller_id === userId) {
       return res.status(400).json({ message: 'You cannot favorite your own product' });
     }
-
-    // Check if already favorited
     const [existingFavorites] = await db.execute(
       'SELECT id FROM favorite WHERE user_id = ? AND product_id = ?',
       [userId, productId]
@@ -73,8 +63,6 @@ router.post('/add', authenticateToken, async (req, res) => {
     if (existingFavorites.length > 0) {
       return res.status(400).json({ message: 'Product already in favorites' });
     }
-
-    // Add to favorites
     await db.execute(
       'INSERT INTO favorite (user_id, product_id) VALUES (?, ?)',
       [userId, productId]
@@ -86,8 +74,6 @@ router.post('/add', authenticateToken, async (req, res) => {
     res.status(500).json({ message: 'Failed to add product to favorites' });
   }
 });
-
-// Remove product from favorites
 router.delete('/remove/:productId', authenticateToken, async (req, res) => {
   try {
     const { productId } = req.params;
@@ -108,8 +94,6 @@ router.delete('/remove/:productId', authenticateToken, async (req, res) => {
     res.status(500).json({ message: 'Failed to remove product from favorites' });
   }
 });
-
-// Check if product is favorited by user
 router.get('/check/:productId', authenticateToken, async (req, res) => {
   try {
     const { productId } = req.params;

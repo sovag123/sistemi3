@@ -1,8 +1,6 @@
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-
-// Ensure upload directories exist
 const ensureDir = (dir) => {
   if (!fs.existsSync(dir)) {
     fs.mkdirSync(dir, { recursive: true });
@@ -25,7 +23,6 @@ const storage = multer.diskStorage({
     cb(null, uploadPath);
   },
   filename: function (req, file, cb) {
-    // Generate unique filename with timestamp and random number
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
     const fileExtension = path.extname(file.originalname);
     const baseName = path.basename(file.originalname, fileExtension).replace(/[^a-zA-Z0-9]/g, '_');
@@ -50,14 +47,12 @@ const fileFilter = (req, file, cb) => {
   console.log('File filter check:', file.fieldname, file.mimetype, file.originalname);
   
   if (file.fieldname === 'images') {
-    // Allow image files
     if (file.mimetype.startsWith('image/')) {
       cb(null, true);
     } else {
       cb(new Error('Only image files are allowed for images field'), false);
     }
   } else if (file.fieldname === 'model_3d') {
-    // Allow 3D model files
     const allowedExtensions = ['.glb', '.gltf', '.obj', '.fbx', '.dae', '.3ds'];
     const fileExtension = path.extname(file.originalname).toLowerCase();
     

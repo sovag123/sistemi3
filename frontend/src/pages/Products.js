@@ -37,8 +37,6 @@ const Products = () => {
       setLoading(true);
       const response = await productsAPI.getAllProducts(searchFilters);
       console.log('Fetched products:', response.data);
-      
-      // Debug 3D model URLs
       const productsWithModels = response.data.filter(p => p.model_3d);
       console.log('Products with 3D models:', productsWithModels);
       productsWithModels.forEach(p => {
@@ -126,8 +124,6 @@ const Products = () => {
 
       alert(`Order successful! Order ID: ${response.data.orderId}`);
       setShowBuyModal(false);
-      
-      // Remove the bought product from the list
       setProducts(products.filter(p => p.id !== selectedProduct.id));
       
     } catch (error) {

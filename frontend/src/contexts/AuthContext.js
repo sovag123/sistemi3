@@ -43,7 +43,6 @@ export const AuthProvider = ({ children }) => {
         console.log('Token invalid, logging out');
         logout();
       } else {
-        // For other errors, still set loading to false
         setUser(null);
       }
     } finally {

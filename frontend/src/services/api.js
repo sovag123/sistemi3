@@ -11,7 +11,12 @@ const api = axios.create({
 });
 
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
+
+  const sessionToken = localStorage.getItem('sessionToken');
+  const jwtToken = localStorage.getItem('token');
+  
+  const token = sessionToken || jwtToken;
+  
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
     console.log('Token sent with request:', token.substring(0, 20) + '...');
@@ -23,10 +28,16 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     console.error('API Error:', error.response?.data || error.message);
-    if (error.response?.status === 401) {
+    
+    if (error.response?.status === 401 || error.response?.status === 403) {
       localStorage.removeItem('token');
-      window.location.href = '/login';
+      localStorage.removeItem('sessionToken');
+      
+      if (!error.config.url.includes('/auth/login')) {
+        window.location.href = '/login';
+      }
     }
+    
     return Promise.reject(error);
   }
 );
@@ -67,8 +78,10 @@ export const orderAPI = {
 export const authAPI = {
   login: (credentials) => api.post('/auth/login', credentials),
   register: (userData) => api.post('/auth/register', userData),
+  logout: () => api.post('/auth/logout'),
   getProfile: () => api.get('/auth/profile'),
   updateProfile: (profileData) => api.put('/auth/profile', profileData),
+  checkSession: () => api.get('/auth/session/status'),
 };
 
 export const productsAPI = {

@@ -12,8 +12,6 @@ const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 100
 });
-
-// More permissive helmet configuration for 3D models
 app.use(helmet({
   crossOriginResourcePolicy: false, // Disable this entirely
   crossOriginEmbedderPolicy: false,
@@ -21,8 +19,6 @@ app.use(helmet({
 }));
 
 app.use(limiter);
-
-// Enhanced CORS configuration
 app.use(cors({
   origin: ['http://localhost:3000', 'http://localhost:3001'],
   credentials: true,
@@ -33,21 +29,13 @@ app.use(cors({
 
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
-
-// Special middleware for 3D models with proper headers
 app.use('/uploads/models', (req, res, next) => {
   console.log('3D Model request:', req.path);
-  
-  // Set all necessary CORS headers
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
   res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Range, Cache-Control');
   res.header('Access-Control-Expose-Headers', 'Content-Length, Content-Range, Accept-Ranges');
-  
-  // Set caching headers
   res.header('Cache-Control', 'public, max-age=31536000');
-  
-  // Set content type based on file extension
   const ext = path.extname(req.path).toLowerCase();
   if (ext === '.glb') {
     res.header('Content-Type', 'model/gltf-binary');
@@ -58,13 +46,9 @@ app.use('/uploads/models', (req, res, next) => {
   } else if (ext === '.fbx') {
     res.header('Content-Type', 'application/octet-stream');
   }
-  
-  // Handle preflight requests
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
   }
-  
-  // Handle HEAD requests
   if (req.method === 'HEAD') {
     const filePath = path.join(__dirname, 'uploads/models', req.path);
     return res.sendFile(filePath, { headers: false });
@@ -72,8 +56,6 @@ app.use('/uploads/models', (req, res, next) => {
   
   next();
 }, express.static(path.join(__dirname, 'uploads/models')));
-
-// Regular images middleware
 app.use('/uploads/images', (req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
@@ -86,15 +68,11 @@ app.use('/uploads/images', (req, res, next) => {
   
   next();
 }, express.static(path.join(__dirname, 'uploads/images')));
-
-// Alternative API endpoint for 3D models with explicit CORS handling
 app.get('/api/model/:filename', (req, res) => {
   const filename = req.params.filename;
   const modelPath = path.join(__dirname, 'uploads', 'models', filename);
   
   console.log('API model request for:', filename);
-  
-  // Set all CORS headers explicitly
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Range');
@@ -109,14 +87,10 @@ app.get('/api/model/:filename', (req, res) => {
     }
   });
 });
-
-// Logging middleware
 app.use((req, res, next) => {
   console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
   next();
 });
-
-// Routes
 try {
   const authRoutes = require('./routes/auth');
   app.use('/api/auth', authRoutes);
@@ -169,8 +143,6 @@ try {
 app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', message: 'Server is running' });
 });
-
-// 404 handler
 app.use((req, res) => {
   console.log(`404 - Route not found: ${req.method} ${req.path}`);
   res.status(404).json({ 
@@ -179,8 +151,6 @@ app.use((req, res) => {
     path: req.path
   });
 });
-
-// Error handler
 app.use((err, req, res, next) => {
   console.error('=== ERROR OCCURRED ===');
   console.error('Time:', new Date().toISOString());

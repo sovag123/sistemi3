@@ -12,8 +12,6 @@ class ErrorBoundary extends React.Component {
 
   componentDidCatch(error, errorInfo) {
     console.error('3D Viewer Error:', error, errorInfo);
-    
-    // Call the onError callback if provided
     if (this.props.onError) {
       this.props.onError(error);
     }

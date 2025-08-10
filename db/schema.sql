@@ -187,3 +187,57 @@ CREATE TABLE product_comment (
     INDEX idx_parent (parent_comment_id),
     INDEX idx_created (created_at)
 );
+USE webstore_3d;
+
+-- Add session management table
+CREATE TABLE user_session (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    user_id INT NOT NULL,
+    session_token VARCHAR(255) NOT NULL UNIQUE,
+    expires_at TIMESTAMP NOT NULL,
+    last_activity TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    ip_address VARCHAR(45),
+    user_agent TEXT,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE,
+    INDEX idx_token (session_token),
+    INDEX idx_user (user_id),
+    INDEX idx_expires (expires_at),
+    INDEX idx_active (is_active)
+);
+
+-- Add login attempts tracking table
+CREATE TABLE login_attempt (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    identifier VARCHAR(255) NOT NULL, -- email, username, or IP
+    ip_address VARCHAR(45) NOT NULL,
+    success BOOLEAN DEFAULT FALSE,
+    attempt_time TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    user_agent TEXT,
+    INDEX idx_identifier (identifier),
+    INDEX idx_ip (ip_address),
+    INDEX idx_time (attempt_time)
+);
+
+-- Add account lock table
+CREATE TABLE account_lock (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    user_id INT,
+    identifier VARCHAR(255), -- for non-existing users
+    ip_address VARCHAR(45) NOT NULL,
+    locked_until TIMESTAMP NOT NULL,
+    reason ENUM('failed_attempts', 'suspicious_activity', 'manual') DEFAULT 'failed_attempts',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE,
+    INDEX idx_user (user_id),
+    INDEX idx_identifier (identifier),
+    INDEX idx_ip (ip_address),
+    INDEX idx_locked_until (locked_until)
+);
+
+-- Add columns to user table for enhanced security
+ALTER TABLE user ADD COLUMN last_login TIMESTAMP NULL;
+ALTER TABLE user ADD COLUMN failed_login_attempts INT DEFAULT 0;
+ALTER TABLE user ADD COLUMN last_failed_login TIMESTAMP NULL;
+ALTER TABLE user ADD COLUMN account_locked_until TIMESTAMP NULL;

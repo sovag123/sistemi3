@@ -2,15 +2,11 @@ const express = require('express');
 const router = express.Router();
 const { authenticateToken } = require('../middleware/auth');
 const db = require('../config/database');
-
-// Get all comments for a product (public)
 router.get('/product/:productId', async (req, res) => {
   try {
     const { productId } = req.params;
     
     console.log('Fetching comments for product:', productId);
-    
-    // Get all comments with user info, ordered by parent/child relationship
     const [comments] = await db.execute(`
       SELECT 
         pc.*,
@@ -27,8 +23,6 @@ router.get('/product/:productId', async (req, res) => {
     `, [productId]);
     
     console.log(`Found ${comments.length} comments for product ${productId}`);
-    
-    // Structure comments with replies
     const structuredComments = [];
     const commentMap = new Map();
     
@@ -59,8 +53,6 @@ router.get('/product/:productId', async (req, res) => {
     res.status(500).json({ message: 'Failed to fetch comments' });
   }
 });
-
-// Add a new comment (protected)
 router.post('/product/:productId', authenticateToken, async (req, res) => {
   try {
     const { productId } = req.params;
@@ -73,8 +65,6 @@ router.post('/product/:productId', authenticateToken, async (req, res) => {
     console.log('Comment text:', comment_text?.substring(0, 50) + '...');
     console.log('Parent comment ID:', parent_comment_id);
     console.log('========================');
-    
-    // Check if user is authenticated
     if (!req.user || !req.user.id) {
       console.error('User not authenticated or user ID missing');
       return res.status(401).json({ message: 'Authentication required' });
@@ -89,14 +79,10 @@ router.post('/product/:productId', authenticateToken, async (req, res) => {
     if (comment_text.trim().length > 1000) {
       return res.status(400).json({ message: 'Comment is too long (max 1000 characters)' });
     }
-    
-    // Check if product exists
     const [products] = await db.execute('SELECT id FROM product WHERE id = ?', [productId]);
     if (products.length === 0) {
       return res.status(404).json({ message: 'Product not found' });
     }
-    
-    // Check if parent comment exists (if replying)
     if (parent_comment_id && parent_comment_id !== null && parent_comment_id !== undefined) {
       const [parentComments] = await db.execute(
         'SELECT id FROM product_comment WHERE id = ? AND product_id = ?', 
@@ -106,8 +92,6 @@ router.post('/product/:productId', authenticateToken, async (req, res) => {
         return res.status(404).json({ message: 'Parent comment not found' });
       }
     }
-    
-    // Properly handle parent_comment_id - convert undefined to null
     const parentId = parent_comment_id && parent_comment_id !== undefined ? parent_comment_id : null;
     
     console.log('Final values for insertion:', {
@@ -116,8 +100,6 @@ router.post('/product/:productId', authenticateToken, async (req, res) => {
       parentId,
       comment_text: comment_text.trim()
     });
-    
-    // Insert comment with explicit type conversion
     const [result] = await db.execute(`
       INSERT INTO product_comment (product_id, user_id, parent_comment_id, comment_text)
       VALUES (?, ?, ?, ?)
@@ -129,8 +111,6 @@ router.post('/product/:productId', authenticateToken, async (req, res) => {
     ]);
     
     console.log('Comment inserted with ID:', result.insertId);
-    
-    // Get the created comment with user info
     const [newComment] = await db.execute(`
       SELECT 
         pc.*,
@@ -158,8 +138,6 @@ router.post('/product/:productId', authenticateToken, async (req, res) => {
     });
   }
 });
-
-// Update comment (protected - only comment owner)
 router.put('/:commentId', authenticateToken, async (req, res) => {
   try {
     const { commentId } = req.params;
@@ -175,8 +153,6 @@ router.put('/:commentId', authenticateToken, async (req, res) => {
     if (comment_text.trim().length > 1000) {
       return res.status(400).json({ message: 'Comment is too long (max 1000 characters)' });
     }
-    
-    // Check if comment exists and user owns it
     const [comments] = await db.execute(
       'SELECT id, user_id FROM product_comment WHERE id = ?', 
       [commentId]
@@ -189,8 +165,6 @@ router.put('/:commentId', authenticateToken, async (req, res) => {
     if (comments[0].user_id !== userId) {
       return res.status(403).json({ message: 'You can only edit your own comments' });
     }
-    
-    // Update comment
     await db.execute(`
       UPDATE product_comment 
       SET comment_text = ?, is_edited = TRUE, updated_at = CURRENT_TIMESTAMP
@@ -206,16 +180,12 @@ router.put('/:commentId', authenticateToken, async (req, res) => {
     res.status(500).json({ message: 'Failed to update comment' });
   }
 });
-
-// Delete comment (protected - only comment owner)
 router.delete('/:commentId', authenticateToken, async (req, res) => {
   try {
     const { commentId } = req.params;
     const userId = req.user.id;
     
     console.log('Deleting comment:', commentId, 'by user:', userId);
-    
-    // Check if comment exists and user owns it
     const [comments] = await db.execute(
       'SELECT id, user_id FROM product_comment WHERE id = ?', 
       [commentId]
@@ -228,8 +198,6 @@ router.delete('/:commentId', authenticateToken, async (req, res) => {
     if (comments[0].user_id !== userId) {
       return res.status(403).json({ message: 'You can only delete your own comments' });
     }
-    
-    // Delete comment (cascade will handle replies)
     await db.execute('DELETE FROM product_comment WHERE id = ?', [commentId]);
     
     console.log('Comment deleted successfully:', commentId);

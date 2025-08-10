@@ -8,8 +8,6 @@ const ProtectedRoute = ({ children }) => {
   const location = useLocation();
 
   console.log('ProtectedRoute - loading:', loading, 'isAuthenticated:', isAuthenticated, 'user:', user);
-
-  // Show loading spinner while checking authentication
   if (loading) {
     return (
       <Container className="d-flex justify-content-center align-items-center" style={{ height: '50vh' }}>
@@ -22,14 +20,10 @@ const ProtectedRoute = ({ children }) => {
       </Container>
     );
   }
-
-  // If not authenticated, redirect to login with return URL
   if (!isAuthenticated || !user) {
     console.log('ProtectedRoute - redirecting to login');
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
-
-  // If authenticated, render the children
   console.log('ProtectedRoute - rendering protected content');
   return children;
 };

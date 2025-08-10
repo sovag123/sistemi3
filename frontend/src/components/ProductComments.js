@@ -60,7 +60,6 @@ const ProductComments = ({ productId }) => {
       console.log('Submitting main comment:', { comment_text: newComment });
       await commentsAPI.addComment(productId, { 
         comment_text: newComment.trim()
-        // Don't include parent_comment_id for main comments
       });
       setNewComment('');
       setSuccess('Comment added successfully!');

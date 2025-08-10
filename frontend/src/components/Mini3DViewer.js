@@ -45,13 +45,10 @@ const Mini3DViewer = ({ modelUrl }) => {
   if (!modelUrl) {
     return null;
   }
-
-  // Try multiple URL formats
   let fullModelUrl;
   if (modelUrl.startsWith('http')) {
     fullModelUrl = modelUrl;
   } else if (modelUrl.startsWith('/uploads/models/')) {
-    // Try the API endpoint first, then fallback to direct path
     const filename = modelUrl.split('/').pop();
     fullModelUrl = `http://localhost:3001/api/model/${filename}`;
   } else {

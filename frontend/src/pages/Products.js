@@ -1,14 +1,24 @@
 import React, { useState, useEffect } from 'react';
-import { Container, Row, Col, Card, Form, Button, Spinner, Alert } from 'react-bootstrap';
+import { Container, Row, Col, Card, Form, Button, Spinner, Alert, Modal } from 'react-bootstrap';
 import { Link } from 'react-router-dom';
-import { productsAPI } from '../services/api';
+import { productsAPI, orderAPI, BACKEND_BASE_URL } from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
 import Mini3DViewer from '../components/Mini3DViewer';
 
 const Products = () => {
+  const { user } = useAuth();
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [showBuyModal, setShowBuyModal] = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [buyLoading, setBuyLoading] = useState(false);
+  const [orderForm, setOrderForm] = useState({
+    shippingAddress: '',
+    paymentMethod: 'card',
+    notes: ''
+  });
   const [filters, setFilters] = useState({
     search: '',
     category: '',
@@ -25,9 +35,19 @@ const Products = () => {
   const fetchProducts = async (searchFilters = {}) => {
     try {
       setLoading(true);
-      const response = await productsAPI.getAll(searchFilters);
+      const response = await productsAPI.getAllProducts(searchFilters);
+      console.log('Fetched products:', response.data);
+      
+      // Debug 3D model URLs
+      const productsWithModels = response.data.filter(p => p.model_3d);
+      console.log('Products with 3D models:', productsWithModels);
+      productsWithModels.forEach(p => {
+        console.log(`Product "${p.title}" has model URL: "${p.model_3d}"`);
+      });
+      
       setProducts(response.data);
     } catch (err) {
+      console.log(err);
       setError('Failed to load products');
     } finally {
       setLoading(false);
@@ -69,6 +89,62 @@ const Products = () => {
     fetchProducts();
   };
 
+  const handleBuyNow = (product) => {
+    if (!user) {
+      alert('Please log in to purchase products');
+      return;
+    }
+
+    if (product.seller_id === user.id) {
+      alert('You cannot buy your own product');
+      return;
+    }
+
+    setSelectedProduct(product);
+    setOrderForm({
+      shippingAddress: user.primary_address || '',
+      paymentMethod: 'card',
+      notes: ''
+    });
+    setShowBuyModal(true);
+  };
+
+  const handleBuyConfirm = async () => {
+    if (!orderForm.shippingAddress.trim()) {
+      alert('Please enter a shipping address');
+      return;
+    }
+
+    setBuyLoading(true);
+    try {
+      const response = await orderAPI.buyNow({
+        productId: selectedProduct.id,
+        shippingAddress: orderForm.shippingAddress,
+        paymentMethod: orderForm.paymentMethod,
+        notes: orderForm.notes
+      });
+
+      alert(`Order successful! Order ID: ${response.data.orderId}`);
+      setShowBuyModal(false);
+      
+      // Remove the bought product from the list
+      setProducts(products.filter(p => p.id !== selectedProduct.id));
+      
+    } catch (error) {
+      alert(error.response?.data?.message || 'Failed to create order');
+    } finally {
+      setBuyLoading(false);
+    }
+  };
+
+  const handleOrderFormChange = (e) => {
+    const { name, value } = e.target;
+    setOrderForm(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
   if (loading && products.length === 0) {
     return (
       <Container className="text-center py-5">
@@ -83,6 +159,7 @@ const Products = () => {
     <Container className="py-4">
       <h1 className="mb-4">Browse Products</h1>
       
+      {/* Filters - same as before */}
       <Card className="mb-4">
         <Card.Body>
           <Row>
@@ -181,11 +258,15 @@ const Products = () => {
               <div style={{ height: '200px', overflow: 'hidden', position: 'relative' }}>
                 <Card.Img
                   variant="top"
-                  src={product.primary_image || '/placeholder-image.jpg'}
+                  src={product.primary_image ? `${BACKEND_BASE_URL}${product.primary_image}` : '/placeholder-image.jpg'}
                   style={{ height: '100%', objectFit: 'cover' }}
                 />
                 {product.model_3d && (
-                  <Mini3DViewer modelUrl={product.model_3d} />
+                  <>
+                    {/* Debug the model URL */}
+                    {console.log(`Rendering 3D viewer for product ${product.id} with URL: ${product.model_3d}`)}
+                    <Mini3DViewer modelUrl={product.model_3d} />
+                  </>
                 )}
               </div>
               <Card.Body className="d-flex flex-column">
@@ -201,25 +282,133 @@ const Products = () => {
                     <h5 className="text-primary mb-0">${product.price}</h5>
                     {product.model_3d && <span className="badge bg-success">3D</span>}
                   </div>
-                  <div className="d-flex justify-content-between align-items-center">
-                    <small className="text-muted"> {product.city}</small>
-                    <Button as={Link} to={`/products/${product.id}`} variant="primary" size="sm">
+                  <div className="d-flex gap-2 mb-2">
+                    <Button 
+                      as={Link} 
+                      to={`/products/${product.id}`} 
+                      variant="outline-primary" 
+                      size="sm"
+                      className="flex-fill"
+                    >
                       View Details
                     </Button>
+                    {user && user.id !== product.seller_id && (
+                      <Button 
+                        variant="success" 
+                        size="sm"
+                        className="flex-fill"
+                        onClick={() => handleBuyNow(product)}
+                      >
+                        Buy Now
+                      </Button>
+                    )}
                   </div>
+                  <div className="d-flex justify-content-between align-items-center text-muted small mt-2">
+                    <span>
+                      <i className="fas fa-eye me-1"></i>
+                      {product.views_count || 0} views
+                    </span>
+                    {product.comment_count > 0 && (
+                      <span>
+                        <i className="fas fa-comment me-1"></i>
+                        {product.comment_count}
+                      </span>
+                    )}
+                  </div>
+                  <small className="text-muted">{product.city}</small>
                 </div>
               </Card.Body>
             </Card>
           </Col>
         ))}
       </Row>
-
+      
       {products.length === 0 && !loading && (
         <div className="text-center py-5">
           <h4>No products found</h4>
           <p>Try adjusting your search filters</p>
         </div>
       )}
+
+      {/* Buy Now Modal */}
+      <Modal show={showBuyModal} onHide={() => setShowBuyModal(false)} size="lg">
+        <Modal.Header closeButton>
+          <Modal.Title>Complete Your Purchase</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {selectedProduct && (
+            <>
+              <Row className="mb-4">
+                <Col md={4}>
+                  <img 
+                    src={selectedProduct.primary_image ? `${BACKEND_BASE_URL}${selectedProduct.primary_image}` : '/placeholder-image.jpg'}
+                    alt={selectedProduct.title}
+                    className="img-fluid rounded"
+                  />
+                </Col>
+                <Col md={8}>
+                  <h5>{selectedProduct.title}</h5>
+                  <p className="text-muted">{selectedProduct.category_name} • {selectedProduct.condition_type}</p>
+                  <h4 className="text-success">${selectedProduct.price}</h4>
+                </Col>
+              </Row>
+
+              <Form>
+                <Form.Group className="mb-3">
+                  <Form.Label>Shipping Address *</Form.Label>
+                  <Form.Control
+                    as="textarea"
+                    rows={3}
+                    name="shippingAddress"
+                    value={orderForm.shippingAddress}
+                    onChange={handleOrderFormChange}
+                    placeholder="Enter your complete shipping address..."
+                    required
+                  />
+                </Form.Group>
+
+                <Form.Group className="mb-3">
+                  <Form.Label>Payment Method</Form.Label>
+                  <Form.Select
+                    name="paymentMethod"
+                    value={orderForm.paymentMethod}
+                    onChange={handleOrderFormChange}
+                  >
+                    <option value="card">Credit/Debit Card</option>
+                    <option value="paypal">PayPal</option>
+                    <option value="bank_transfer">Bank Transfer</option>
+                    <option value="cash">Cash on Delivery</option>
+                  </Form.Select>
+                </Form.Group>
+
+                <Form.Group className="mb-3">
+                  <Form.Label>Notes (Optional)</Form.Label>
+                  <Form.Control
+                    as="textarea"
+                    rows={2}
+                    name="notes"
+                    value={orderForm.notes}
+                    onChange={handleOrderFormChange}
+                    placeholder="Any special instructions..."
+                  />
+                </Form.Group>
+              </Form>
+            </>
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowBuyModal(false)}>
+            Cancel
+          </Button>
+          <Button 
+            variant="success" 
+            onClick={handleBuyConfirm}
+            disabled={buyLoading}
+          >
+            {buyLoading ? 'Processing...' : `Buy Now - $${selectedProduct?.price}`}
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </Container>
   );
 };

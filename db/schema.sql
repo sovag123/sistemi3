@@ -168,3 +168,22 @@ CREATE TABLE cart_item (
     UNIQUE KEY unique_cart_item (user_id, product_id),
     INDEX idx_user (user_id)
 );
+DROP TABLE IF EXISTS review;
+
+CREATE TABLE product_comment (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    product_id INT NOT NULL,
+    user_id INT NOT NULL,
+    parent_comment_id INT NULL,
+    comment_text TEXT NOT NULL,
+    is_edited BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (product_id) REFERENCES product(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES user(id) ON DELETE CASCADE,
+    FOREIGN KEY (parent_comment_id) REFERENCES product_comment(id) ON DELETE CASCADE,
+    INDEX idx_product (product_id),
+    INDEX idx_user (user_id),
+    INDEX idx_parent (parent_comment_id),
+    INDEX idx_created (created_at)
+);

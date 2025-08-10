@@ -1,65 +1,101 @@
 import React, { Suspense } from 'react';
 import { Canvas } from '@react-three/fiber';
-import { OrbitControls, useGLTF, Html } from '@react-three/drei';
-import { getFullModelUrl } from '../services/api';
+import { OrbitControls, useGLTF } from '@react-three/drei';
+import ErrorBoundary from './ErrorBoundary';
 
-const Mini3DModel = ({ url }) => {
-  const fullUrl = getFullModelUrl(url);
-  console.log('Mini3DViewer loading:', fullUrl); 
-  const { scene } = useGLTF(fullUrl);
-  return <primitive object={scene} scale={0.5} />;
+const Mini3DModel = ({ modelUrl }) => {
+  console.log('Loading 3D model from:', modelUrl);
+  
+  const { scene } = useGLTF(modelUrl);
+  const clonedScene = scene.clone();
+  clonedScene.scale.setScalar(0.5);
+  
+  return <primitive object={clonedScene} />;
 };
 
-const FallbackModel = () => {
-  return (
-    <mesh>
-      <boxGeometry args={[1, 1, 1]} />
-      <meshStandardMaterial color="#4CAF50" />
-    </mesh>
-  );
-};
+const LoadingFallback = () => (
+  <div style={{ 
+    width: '100%', 
+    height: '100%', 
+    display: 'flex', 
+    alignItems: 'center', 
+    justifyContent: 'center',
+    color: 'white',
+    fontSize: '10px'
+  }}>
+    Loading...
+  </div>
+);
 
-
-const LoadingModel = () => {
-  return (
-    <mesh>
-      <boxGeometry args={[1, 1, 1]} />
-      <meshStandardMaterial color="#ffa500" />
-    </mesh>
-  );
-};
+const ErrorFallback = () => (
+  <div style={{ 
+    width: '100%', 
+    height: '100%', 
+    display: 'flex', 
+    alignItems: 'center', 
+    justifyContent: 'center',
+    color: 'white',
+    fontSize: '10px'
+  }}>
+    3D Error
+  </div>
+);
 
 const Mini3DViewer = ({ modelUrl }) => {
-  if (!modelUrl) return null;
+  if (!modelUrl) {
+    return null;
+  }
 
-  console.log('Mini3DViewer received modelUrl:', modelUrl); 
+  // Try multiple URL formats
+  let fullModelUrl;
+  if (modelUrl.startsWith('http')) {
+    fullModelUrl = modelUrl;
+  } else if (modelUrl.startsWith('/uploads/models/')) {
+    // Try the API endpoint first, then fallback to direct path
+    const filename = modelUrl.split('/').pop();
+    fullModelUrl = `http://localhost:3001/api/model/${filename}`;
+  } else {
+    fullModelUrl = `http://localhost:3001${modelUrl}`;
+  }
+
+  console.log('Mini3DViewer - Full model URL:', fullModelUrl);
 
   return (
     <div 
-      style={{ 
+      style={{
         position: 'absolute',
-        top: '10px',
+        bottom: '10px',
         right: '10px',
         width: '80px',
         height: '80px',
-        background: 'rgba(0,0,0,0.7)',
+        backgroundColor: 'rgba(0,0,0,0.8)',
         borderRadius: '8px',
-        overflow: 'hidden'
+        border: '2px solid #007bff'
       }}
     >
-      <Canvas camera={{ position: [0, 0, 2], fov: 50 }}>
-        <ambientLight intensity={0.5} />
-        <pointLight position={[2, 2, 2]} />
-        <Suspense fallback={<LoadingModel />}>
-          <Mini3DModel url={modelUrl} />
+      <ErrorBoundary fallback={<ErrorFallback />}>
+        <Suspense fallback={<LoadingFallback />}>
+          <Canvas 
+            camera={{ position: [0, 0, 5], fov: 50 }}
+            gl={{ 
+              antialias: true,
+              alpha: true,
+              preserveDrawingBuffer: false
+            }}
+          >
+            <ambientLight intensity={0.5} />
+            <pointLight position={[10, 10, 10]} />
+            <Mini3DModel modelUrl={fullModelUrl} />
+            <OrbitControls 
+              enableZoom={false} 
+              enablePan={false}
+              enableRotate={true}
+              autoRotate={true}
+              autoRotateSpeed={2}
+            />
+          </Canvas>
         </Suspense>
-        <OrbitControls 
-          enableZoom={false} 
-          enablePan={false}
-          autoRotate={true}
-          autoRotateSpeed={2}
-        />
-      </Canvas>
+      </ErrorBoundary>
     </div>
   );
 };

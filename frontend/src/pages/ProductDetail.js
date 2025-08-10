@@ -1,32 +1,164 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Container, Row, Col, Card, Button, Badge, Spinner, Alert } from 'react-bootstrap';
-import { useParams } from 'react-router-dom';
-import { productsAPI } from '../services/api';
+import { Container, Row, Col, Card, Button, Badge, Spinner, Alert, Modal, Form } from 'react-bootstrap';
+import { useParams, useNavigate } from 'react-router-dom';
+import { productsAPI, orderAPI, favoritesAPI, BACKEND_BASE_URL } from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
 import ThreeDViewer from '../components/ThreeDViewer';
 import FallbackViewer from '../components/FallbackViewer';
+import ProductComments from '../components/ProductComments';
 
 const ProductDetail = () => {
   const { id } = useParams();
+  const navigate = useNavigate();
+  const { user } = useAuth();
   const [product, setProduct] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [selectedImage, setSelectedImage] = useState(0);
+  const [showBuyModal, setShowBuyModal] = useState(false);
+  const [buyLoading, setBuyLoading] = useState(false);
+  const [isFavorited, setIsFavorited] = useState(false);
+  const [favoriteLoading, setFavoriteLoading] = useState(false);
+  const [orderForm, setOrderForm] = useState({
+    shippingAddress: '',
+    paymentMethod: 'card',
+    notes: ''
+  });
 
   const fetchProduct = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await productsAPI.getById(id);
+      const response = await productsAPI.getProduct(id);
+      
+      // Check if product is active (not sold)
+      if (!response.data.is_active) {
+        setError('This product is no longer available (already sold)');
+        return;
+      }
+      
       setProduct(response.data);
+      
+      // Check if product is favorited by current user
+      if (user) {
+        checkFavoriteStatus();
+      }
     } catch (err) {
-      setError('Product not found');
+      if (err.response?.status === 404) {
+        setError('Product not found or no longer available');
+      } else {
+        setError('Failed to load product');
+      }
     } finally {
       setLoading(false);
     }
-  }, [id]);
+  }, [id, user]);
+
+  const checkFavoriteStatus = async () => {
+    try {
+      const response = await favoritesAPI.checkFavoriteStatus(id);
+      setIsFavorited(response.data.isFavorited);
+    } catch (error) {
+      console.error('Error checking favorite status:', error);
+    }
+  };
 
   useEffect(() => {
     fetchProduct();
   }, [fetchProduct]);
+
+  const handleToggleFavorite = async () => {
+    if (!user) {
+      alert('Please log in to add favorites');
+      navigate('/login');
+      return;
+    }
+
+    if (product.seller_id === user.id) {
+      alert('You cannot favorite your own product');
+      return;
+    }
+
+    setFavoriteLoading(true);
+    try {
+      if (isFavorited) {
+        await favoritesAPI.removeFromFavorites(product.id);
+        setIsFavorited(false);
+      } else {
+        await favoritesAPI.addToFavorites(product.id);
+        setIsFavorited(true);
+      }
+    } catch (error) {
+      alert(error.response?.data?.message || 'Failed to update favorites');
+    } finally {
+      setFavoriteLoading(false);
+    }
+  };
+
+  const handleBuyNow = () => {
+    if (!user) {
+      alert('Please log in to purchase this product');
+      navigate('/login');
+      return;
+    }
+
+    if (product.seller_id === user.id) {
+      alert('You cannot buy your own product');
+      return;
+    }
+
+    setOrderForm({
+      shippingAddress: user.primary_address || '',
+      paymentMethod: 'card',
+      notes: ''
+    });
+    setShowBuyModal(true);
+  };
+
+  const handleOrderFormChange = (e) => {
+    const { name, value } = e.target;
+    setOrderForm(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handleBuyConfirm = async () => {
+    if (!orderForm.shippingAddress.trim()) {
+      alert('Please enter a shipping address');
+      return;
+    }
+
+    setBuyLoading(true);
+    try {
+      const response = await orderAPI.buyNow({
+        productId: product.id,
+        shippingAddress: orderForm.shippingAddress,
+        paymentMethod: orderForm.paymentMethod,
+        notes: orderForm.notes
+      });
+
+      alert(`Order successful! Order ID: ${response.data.orderId}`);
+      setShowBuyModal(false);
+      
+      // Redirect to orders page or products page
+      navigate('/products');
+      
+    } catch (error) {
+      alert(error.response?.data?.message || 'Failed to create order');
+    } finally {
+      setBuyLoading(false);
+    }
+  };
+
+  const formatViewCount = (count) => {
+    if (count >= 1000000) {
+      return (count / 1000000).toFixed(1) + 'M';
+    } else if (count >= 1000) {
+      return (count / 1000).toFixed(1) + 'K';
+    } else {
+      return count.toString();
+    }
+  };
 
   if (loading) {
     return (
@@ -41,7 +173,14 @@ const ProductDetail = () => {
   if (error || !product) {
     return (
       <Container className="py-5">
-        <Alert variant="danger">{error}</Alert>
+        <Alert variant="danger">
+          {error}
+          <div className="mt-3">
+            <Button variant="primary" onClick={() => navigate('/products')}>
+              Browse Other Products
+            </Button>
+          </div>
+        </Alert>
       </Container>
     );
   }
@@ -54,7 +193,7 @@ const ProductDetail = () => {
             <div style={{ height: '400px', overflow: 'hidden' }}>
               <Card.Img
                 variant="top"
-                src={product.images?.[selectedImage]?.image_url || '/placeholder-image.jpg'}
+                src={product.images?.[selectedImage]?.image_url ? `${BACKEND_BASE_URL}${product.images[selectedImage].image_url}` : '/placeholder-image.jpg'}
                 style={{ height: '100%', objectFit: 'cover' }}
               />
             </div>
@@ -64,7 +203,7 @@ const ProductDetail = () => {
                   {product.images.map((image, index) => (
                     <img
                       key={index}
-                      src={image.image_url}
+                      src={`${BACKEND_BASE_URL}${image.image_url}`}
                       alt={image.alt_text}
                       style={{
                         width: '60px',
@@ -83,7 +222,7 @@ const ProductDetail = () => {
 
           {product.model_3d ? (
             <ThreeDViewer 
-              modelUrl={product.model_3d.model_url} 
+              modelUrl={`${BACKEND_BASE_URL}${product.model_3d.model_url}`} 
               title={product.title}
             />
           ) : (
@@ -101,9 +240,25 @@ const ProductDetail = () => {
               </Badge>
               {product.model_3d && (
                 <Badge bg="info" className="ms-2">
-                   3D Model Available
+                  3D Model Available
                 </Badge>
               )}
+            </div>
+            
+            {/* View Counter Display */}
+            <div className="text-muted small mb-3">
+              <i className="fas fa-eye me-1"></i>
+              {formatViewCount(product.views_count)} views
+              {product.comment_count > 0 && (
+                <>
+                  <span className="mx-2">•</span>
+                  <i className="fas fa-comment me-1"></i>
+                  {product.comment_count} comment{product.comment_count !== 1 ? 's' : ''}
+                </>
+              )}
+              <span className="mx-2">•</span>
+              <i className="fas fa-calendar me-1"></i>
+              Listed {new Date(product.created_at).toLocaleDateString()}
             </div>
           </div>
 
@@ -111,15 +266,31 @@ const ProductDetail = () => {
             <Card.Body>
               <h2 className="text-primary">${product.price}</h2>
               <div className="d-grid gap-2">
-                <Button variant="primary" size="lg">
-                   Add to Cart
-                </Button>
+                {user && user.id !== product.seller_id ? (
+                  <Button variant="success" size="lg" onClick={handleBuyNow}>
+                    Buy Now
+                  </Button>
+                ) : user && user.id === product.seller_id ? (
+                  <Button variant="secondary" size="lg" disabled>
+                    Your Product
+                  </Button>
+                ) : (
+                  <Button variant="primary" size="lg" onClick={() => navigate('/login')}>
+                    Login to Purchase
+                  </Button>
+                )}
                 <Button variant="outline-secondary">
-                   Message Seller
+                  Message Seller
                 </Button>
-                <Button variant="outline-danger">
-                   Add to Favorites
-                </Button>
+                {user && user.id !== product.seller_id && (
+                  <Button 
+                    variant={isFavorited ? "danger" : "outline-danger"}
+                    onClick={handleToggleFavorite}
+                    disabled={favoriteLoading}
+                  >
+                    {favoriteLoading ? 'Loading...' : isFavorited ? '♥ Remove from Favorites' : '♡ Add to Favorites'}
+                  </Button>
+                )}
               </div>
             </Card.Body>
           </Card>
@@ -145,29 +316,91 @@ const ProductDetail = () => {
               </Button>
             </Card.Body>
           </Card>
-
-          {product.reviews && product.reviews.length > 0 && (
-            <Card>
-              <Card.Header>
-                <h5>Reviews ({product.reviews.length})</h5>
-              </Card.Header>
-              <Card.Body>
-                {product.reviews.slice(0, 3).map((review, index) => (
-                  <div key={index} className="mb-3 pb-3 border-bottom">
-                    <div className="d-flex justify-content-between">
-                      <strong>{review.reviewer_name}</strong>
-                      <div>
-                        {'⭐'.repeat(review.rating)}
-                      </div>
-                    </div>
-                    <p className="mb-0">{review.comment_text}</p>
-                  </div>
-                ))}
-              </Card.Body>
-            </Card>
-          )}
         </Col>
       </Row>
+
+      {/* Comments Section */}
+      <Row className="mt-4">
+        <Col>
+          <ProductComments productId={product.id} />
+        </Col>
+      </Row>
+
+      {/* Buy Now Modal */}
+      <Modal show={showBuyModal} onHide={() => setShowBuyModal(false)} size="lg">
+        <Modal.Header closeButton>
+          <Modal.Title>Complete Your Purchase</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Row className="mb-4">
+            <Col md={4}>
+              <img 
+                src={product.images?.[0]?.image_url ? `${BACKEND_BASE_URL}${product.images[0].image_url}` : '/placeholder-image.jpg'}
+                alt={product.title}
+                className="img-fluid rounded"
+              />
+            </Col>
+            <Col md={8}>
+              <h5>{product.title}</h5>
+              <p className="text-muted">{product.category_name} • {product.condition_type}</p>
+              <h4 className="text-success">${product.price}</h4>
+            </Col>
+          </Row>
+
+          <Form>
+            <Form.Group className="mb-3">
+              <Form.Label>Shipping Address *</Form.Label>
+              <Form.Control
+                as="textarea"
+                rows={3}
+                name="shippingAddress"
+                value={orderForm.shippingAddress}
+                onChange={handleOrderFormChange}
+                placeholder="Enter your complete shipping address..."
+                required
+              />
+            </Form.Group>
+
+            <Form.Group className="mb-3">
+              <Form.Label>Payment Method</Form.Label>
+              <Form.Select
+                name="paymentMethod"
+                value={orderForm.paymentMethod}
+                onChange={handleOrderFormChange}
+              >
+                <option value="card">Credit/Debit Card</option>
+                <option value="paypal">PayPal</option>
+                <option value="bank_transfer">Bank Transfer</option>
+                <option value="cash">Cash on Delivery</option>
+              </Form.Select>
+            </Form.Group>
+
+            <Form.Group className="mb-3">
+              <Form.Label>Notes (Optional)</Form.Label>
+              <Form.Control
+                as="textarea"
+                rows={2}
+                name="notes"
+                value={orderForm.notes}
+                onChange={handleOrderFormChange}
+                placeholder="Any special instructions..."
+              />
+            </Form.Group>
+          </Form>
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowBuyModal(false)}>
+            Cancel
+          </Button>
+          <Button 
+            variant="success" 
+            onClick={handleBuyConfirm}
+            disabled={buyLoading}
+          >
+            {buyLoading ? 'Processing...' : `Buy Now - $${product.price}`}
+          </Button>
+        </Modal.Footer>
+      </Modal>
     </Container>
   );
 };

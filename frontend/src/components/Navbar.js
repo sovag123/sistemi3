@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
-import { Navbar as BootstrapNavbar, Nav, NavDropdown, Container, Button } from 'react-bootstrap';
+import React from 'react';
+import { Navbar as BootstrapNavbar, Nav, Container, Button, Dropdown, Badge } from 'react-bootstrap';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 
 const Navbar = () => {
-  const { user, logout } = useAuth();
+  const { user, isAuthenticated, logout } = useAuth();
   const navigate = useNavigate();
 
   const handleLogout = () => {
@@ -13,44 +13,72 @@ const Navbar = () => {
   };
 
   return (
-    <BootstrapNavbar bg="primary" variant="dark" expand="lg">
+    <BootstrapNavbar bg="primary" variant="dark" expand="lg" sticky="top">
       <Container>
         <BootstrapNavbar.Brand as={Link} to="/">
-          3D Marketplace
+           Sistemi3 Marketplace
         </BootstrapNavbar.Brand>
         
         <BootstrapNavbar.Toggle aria-controls="basic-navbar-nav" />
-        
         <BootstrapNavbar.Collapse id="basic-navbar-nav">
           <Nav className="me-auto">
-            <Nav.Link as={Link} to="/products">
-              Browse Products
-            </Nav.Link>
+            <Nav.Link as={Link} to="/">Home</Nav.Link>
+            <Nav.Link as={Link} to="/products">Browse Products</Nav.Link>
+            {isAuthenticated && (
+              <>
+                <Nav.Link as={Link} to="/sell">Sell Item</Nav.Link>
+             
+                <Nav.Link as={Link} to="/messages">
+                  Messages <Badge bg="danger">3</Badge>
+                </Nav.Link>
+              </>
+            )}
           </Nav>
           
-          <Nav className="ms-auto">
-            {user ? (
+          <Nav>
+            {isAuthenticated ? (
               <>
-                <Nav.Link href="#">
-                   Cart
-                </Nav.Link>
-                <NavDropdown title={`👤 ${user.username}`} id="basic-nav-dropdown">
-                  <NavDropdown.Item href="#">Profile</NavDropdown.Item>
-                  <NavDropdown.Item href="#">My Products</NavDropdown.Item>
-                  <NavDropdown.Divider />
-                  <NavDropdown.Item onClick={handleLogout}>
-                    Logout
-                  </NavDropdown.Item>
-                </NavDropdown>
+                <Dropdown align="end">
+                  <Dropdown.Toggle as={Nav.Link} id="user-dropdown">
+                     {user?.first_name || user?.username}
+                  </Dropdown.Toggle>
+                  <Dropdown.Menu>
+                    <Dropdown.Item as={Link} to="/profile">
+                      My Profile
+                    </Dropdown.Item>
+                    <Dropdown.Item as={Link} to="/my-products">
+                      My Products
+                    </Dropdown.Item>
+                    <Dropdown.Item as={Link} to="/favourites">
+                      My Favorites
+                    </Dropdown.Item>
+                    <Dropdown.Item as={Link} to="/orders">
+                      Order History
+                    </Dropdown.Item>
+                    <Dropdown.Divider />
+                    <Dropdown.Item onClick={handleLogout}>
+                      Sign Out
+                    </Dropdown.Item>
+                  </Dropdown.Menu>
+                </Dropdown>
               </>
             ) : (
               <>
-                <Nav.Link as={Link} to="/login">
-                  Login
-                </Nav.Link>
-                <Nav.Link as={Link} to="/register">
-                  Register
-                </Nav.Link>
+                <Button 
+                  as={Link} 
+                  to="/login" 
+                  variant="outline-light" 
+                  className="me-2"
+                >
+                  Sign In
+                </Button>
+                <Button 
+                  as={Link} 
+                  to="/register" 
+                  variant="warning"
+                >
+                  Sign Up
+                </Button>
               </>
             )}
           </Nav>

@@ -7,6 +7,12 @@ import Products from './pages/Products';
 import ProductDetail from './pages/ProductDetail';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import Profile from './pages/Profile';
+import Favorites from './pages/Favorites';
+import ProtectedRoute from './components/ProtectedRoute';
+import SellProduct from './pages/SellProduct';
+import MyProducts from './pages/MyProducts';
+
 import { AuthProvider } from './contexts/AuthContext';
 
 function App() {
@@ -20,6 +26,68 @@ function App() {
           <Route path="/products/:id" element={<ProductDetail />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route
+            path="/profile"
+            element={
+              <ProtectedRoute>
+                <Profile />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/favorites"
+            element={
+              <ProtectedRoute>
+                <Favorites />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/favourites" 
+            element={
+    
+                <Favorites />
+    
+            }
+          />
+          <Route
+            path="/sell"
+            element={
+              <ProtectedRoute>
+                <SellProduct />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/my-products"
+            element={
+              <ProtectedRoute>
+                <MyProducts />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/messages"
+            element={
+              <ProtectedRoute>
+                <div className="container py-5">
+                  <h2>Messages</h2>
+                  <p>Coming soon...</p>
+                </div>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/orders"
+            element={
+              <ProtectedRoute>
+                <div className="container py-5">
+                  <h2>Order History</h2>
+                  <p>Coming soon...</p>
+                </div>
+              </ProtectedRoute>
+            }
+          />
         </Routes>
       </Router>
     </AuthProvider>

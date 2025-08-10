@@ -1,17 +1,36 @@
-import React, { Suspense, useState } from 'react';
+import React, { Suspense, useState, useRef, useEffect } from 'react';
 import { Canvas } from '@react-three/fiber';
 import { OrbitControls, useGLTF, Environment, ContactShadows, Html } from '@react-three/drei';
 import { Card, Button, Spinner } from 'react-bootstrap';
 import { getFullModelUrl } from '../services/api';
+import ErrorBoundary from './ErrorBoundary';
 
 const Model = ({ url }) => {
   const fullUrl = getFullModelUrl(url);
-  console.log('Loading 3D model from:', fullUrl); // Debug log
+  console.log('Loading 3D model from:', fullUrl);
   const { scene } = useGLTF(fullUrl);
+  
+  if (!scene) {
+    return (
+      <mesh>
+        <boxGeometry args={[2, 2, 2]} />
+        <meshStandardMaterial color="#ff6b6b" />
+      </mesh>
+    );
+  }
+  
   return <primitive object={scene} />;
 };
 
-// Fix the loading fallback - use Html from drei for HTML content in Canvas
+const ErrorModel = () => {
+  return (
+    <mesh>
+      <boxGeometry args={[2, 2, 2]} />
+      <meshStandardMaterial color="#ff6b6b" />
+    </mesh>
+  );
+};
+
 const LoadingFallback = () => (
   <Html center>
     <div style={{
@@ -29,6 +48,13 @@ const LoadingFallback = () => (
 
 const ThreeDViewer = ({ modelUrl, title }) => {
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [error, setError] = useState(null);
+  const canvasRef = useRef();
+
+  useEffect(() => {
+
+    setError(null);
+  }, [modelUrl]);
 
   const handleFullscreen = () => {
     setIsFullscreen(!isFullscreen);
@@ -38,7 +64,7 @@ const ThreeDViewer = ({ modelUrl, title }) => {
     return (
       <Card>
         <Card.Body className="text-center p-4">
-          <div className="mb-3"></div>
+
           <h5>No 3D Model Available</h5>
           <p className="text-muted">This product doesn't have a 3D model yet.</p>
         </Card.Body>
@@ -46,13 +72,64 @@ const ThreeDViewer = ({ modelUrl, title }) => {
     );
   }
 
-  console.log('ThreeDViewer received modelUrl:', modelUrl); // Debug log
+  if (error) {
+    return (
+      <Card>
+        <Card.Header>
+          <h5 className="mb-0">3D Model Viewer</h5>
+        </Card.Header>
+        <Card.Body className="text-center p-4">
+         
+          <h5>Unable to Load 3D Model</h5>
+          <p className="text-muted">There was an error loading the 3D model.</p>
+          <Button variant="primary" onClick={() => setError(null)}>
+            Try Again
+          </Button>
+        </Card.Body>
+      </Card>
+    );
+  }
+
+  console.log('ThreeDViewer received modelUrl:', modelUrl);
+
+  const renderCanvas = (isFullscreenCanvas = false) => (
+    <Canvas
+      ref={isFullscreenCanvas ? undefined : canvasRef}
+      camera={{ position: [0, 0, 5], fov: 50 }}
+      style={{ width: '100%', height: '100%' }}
+      onError={(error) => {
+        console.error('Canvas error:', error);
+        setError(error);
+      }}
+    >
+      <Suspense fallback={<LoadingFallback />}>
+        <ambientLight intensity={0.5} />
+        <spotLight position={[10, 10, 10]} angle={0.15} penumbra={1} />
+        <pointLight position={[-10, -10, -10]} />
+        
+        <ErrorBoundary fallback={<ErrorModel />}>
+          <Model url={modelUrl} />
+        </ErrorBoundary>
+        
+        <Environment preset="studio" />
+        <ContactShadows position={[0, -1.4, 0]} opacity={0.75} scale={10} blur={2.5} far={4} />
+        
+        <OrbitControls
+          enablePan={true}
+          enableZoom={true}
+          enableRotate={true}
+          minDistance={1}
+          maxDistance={20}
+        />
+      </Suspense>
+    </Canvas>
+  );
 
   return (
-    <>
+    <ErrorBoundary>
       <Card>
         <Card.Header className="d-flex justify-content-between align-items-center">
-          <h5 className="mb-0">🎮 3D Model Viewer</h5>
+          <h5 className="mb-0">3D Model Viewer</h5>
           <Button variant="outline-primary" size="sm" onClick={handleFullscreen}>
             {isFullscreen ? '🗗 Exit Fullscreen' : '🗖 Fullscreen'}
           </Button>
@@ -63,29 +140,7 @@ const ThreeDViewer = ({ modelUrl, title }) => {
             position: 'relative',
             background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
           }}>
-            <Canvas
-              camera={{ position: [0, 0, 5], fov: 50 }}
-              style={{ width: '100%', height: '100%' }}
-            >
-              <Suspense fallback={<LoadingFallback />}>
-                <ambientLight intensity={0.5} />
-                <spotLight position={[10, 10, 10]} angle={0.15} penumbra={1} />
-                <pointLight position={[-10, -10, -10]} />
-                
-                <Model url={modelUrl} />
-                
-                <Environment preset="studio" />
-                <ContactShadows position={[0, -1.4, 0]} opacity={0.75} scale={10} blur={2.5} far={4} />
-                
-                <OrbitControls
-                  enablePan={true}
-                  enableZoom={true}
-                  enableRotate={true}
-                  minDistance={1}
-                  maxDistance={20}
-                />
-              </Suspense>
-            </Canvas>
+            {renderCanvas()}
             
             <div style={{
               position: 'absolute',
@@ -97,7 +152,7 @@ const ThreeDViewer = ({ modelUrl, title }) => {
               borderRadius: '4px',
               fontSize: '12px'
             }}>
-              🖱️ Click and drag to rotate • 🔍 Scroll to zoom • 📱 Pinch to zoom
+              Click and drag to rotate, Scroll to zoom, Pinch to zoom
             </div>
           </div>
         </Card.Body>
@@ -130,33 +185,11 @@ const ThreeDViewer = ({ modelUrl, title }) => {
           </div>
           
           <div style={{ flex: 1 }}>
-            <Canvas
-              camera={{ position: [0, 0, 5], fov: 50 }}
-              style={{ width: '100%', height: '100%' }}
-            >
-              <Suspense fallback={<LoadingFallback />}>
-                <ambientLight intensity={0.5} />
-                <spotLight position={[10, 10, 10]} angle={0.15} penumbra={1} />
-                <pointLight position={[-10, -10, -10]} />
-                
-                <Model url={modelUrl} />
-                
-                <Environment preset="studio" />
-                <ContactShadows position={[0, -1.4, 0]} opacity={0.75} scale={10} blur={2.5} far={4} />
-                
-                <OrbitControls
-                  enablePan={true}
-                  enableZoom={true}
-                  enableRotate={true}
-                  minDistance={1}
-                  maxDistance={20}
-                />
-              </Suspense>
-            </Canvas>
+            {renderCanvas(true)}
           </div>
         </div>
       )}
-    </>
+    </ErrorBoundary>
   );
 };
 

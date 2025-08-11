@@ -22,13 +22,14 @@ const Favorites = () => {
     }
   }, [user]);
 
+  
   const fetchFavorites = async () => {
     try {
       console.log('Fetching favorites...');
       setLoading(true);
       setError('');
       
-      const response = await favoritesAPI.getFavorites();
+      const response = await favoritesAPI.getUserFavorites(); 
       console.log('Favorites API response:', response);
       console.log('Favorites data:', response.data);
       
@@ -49,13 +50,14 @@ const Favorites = () => {
     }
   };
 
+  
   const handleRemoveFromFavorites = async (productId) => {
     if (!window.confirm('Are you sure you want to remove this product from favorites?')) {
       return;
     }
 
     try {
-      await favoritesAPI.removeFromFavorites(productId);
+      await favoritesAPI.removeFromFavorites(productId); 
       setFavorites(favorites.filter(fav => fav.product_id !== productId));
     } catch (error) {
       console.error('Error removing favorite:', error);

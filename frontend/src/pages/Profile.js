@@ -8,9 +8,7 @@ const Profile = () => {
     first_name: '',
     last_name: '',
     phone_number: '',
-    address: '',
-    postal_code: '',
-    country: ''
+    address: ''
   });
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState('');
@@ -22,9 +20,7 @@ const Profile = () => {
         first_name: user.first_name || '',
         last_name: user.last_name || '',
         phone_number: user.phone_number || '',
-        address: user.address || '',
-        postal_code: user.postal_code || '',
-        country: user.country || ''
+        address: user.address || ''
       });
     }
   }, [user]);
@@ -164,35 +160,7 @@ const Profile = () => {
                       />
                     </Form.Group>
 
-                    <Row>
-                   
-                      <Col md={3}>
-                        <Form.Group className="mb-3">
-                          <Form.Label>Postal Code</Form.Label>
-                          <Form.Control
-                            type="text"
-                            name="postal_code"
-                            value={formData.postal_code}
-                            onChange={handleChange}
-                            placeholder="10001"
-                            disabled={loading}
-                          />
-                        </Form.Group>
-                      </Col>
-                      <Col md={3}>
-                        <Form.Group className="mb-3">
-                          <Form.Label>Country</Form.Label>
-                          <Form.Control
-                            type="text"
-                            name="country"
-                            value={formData.country}
-                            onChange={handleChange}
-                            placeholder="USA"
-                            disabled={loading}
-                          />
-                        </Form.Group>
-                      </Col>
-                    </Row>
+                 
 
                     <Button type="submit" variant="primary" disabled={loading}>
                       {loading ? (

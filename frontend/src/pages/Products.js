@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Container, Row, Col, Card, Form, Button, Spinner, Alert, Modal } from 'react-bootstrap';
 import { Link } from 'react-router-dom';
 import { productsAPI, orderAPI, BACKEND_BASE_URL } from '../services/api';
@@ -27,26 +27,31 @@ const Products = () => {
     maxPrice: ''
   });
 
+  
+  const fetchedRef = useRef(false);
+
   useEffect(() => {
-    fetchProducts();
-    fetchCategories();
+    if (!fetchedRef.current) {
+      fetchedRef.current = true;
+      fetchProducts();
+      fetchCategories();
+    }
   }, []);
 
   const fetchProducts = async (searchFilters = {}) => {
     try {
       setLoading(true);
+      setError('');
+      
       const response = await productsAPI.getAllProducts(searchFilters);
       console.log('Fetched products:', response.data);
-      const productsWithModels = response.data.filter(p => p.model_3d);
-      console.log('Products with 3D models:', productsWithModels);
-      productsWithModels.forEach(p => {
-        console.log(`Product "${p.title}" has model URL: "${p.model_3d}"`);
-      });
       
-      setProducts(response.data);
+      const productsArray = response.data.products || response.data;
+      setProducts(productsArray);
+      
     } catch (err) {
-      console.log(err);
-      setError('Failed to load products');
+      console.error('Error fetching products:', err);
+      setError('Failed to load products. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -57,7 +62,8 @@ const Products = () => {
       const response = await productsAPI.getCategories();
       setCategories(response.data);
     } catch (err) {
-      console.error('Failed to load categories');
+      console.error('Failed to load categories:', err);
+      
     }
   };
 
@@ -147,6 +153,7 @@ const Products = () => {
         <Spinner animation="border" role="status">
           <span className="visually-hidden">Loading...</span>
         </Spinner>
+        <p className="mt-3">Loading products...</p>
       </Container>
     );
   }
@@ -154,6 +161,12 @@ const Products = () => {
   return (
     <Container className="py-4">
       <h1 className="mb-4">Browse Products</h1>
+      
+      {error && (
+        <Alert variant="danger" dismissible onClose={() => setError('')}>
+          {error}
+        </Alert>
+      )}
       
       {/* Filters - same as before */}
       <Card className="mb-4">
@@ -244,8 +257,6 @@ const Products = () => {
           </Row>
         </Card.Body>
       </Card>
-
-      {error && <Alert variant="danger">{error}</Alert>}
 
       <Row>
         {products.map(product => (

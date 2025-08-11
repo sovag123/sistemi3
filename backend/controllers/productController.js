@@ -5,7 +5,7 @@ const fs = require('fs').promises;
 const productController = {
   getAllProducts: async (req, res) => {
     try {
-      const { search, category, condition, minPrice, maxPrice } = req.query;
+      const { search, category, condition, minPrice, maxPrice, seller_id } = req.query;
       
       let query = `
         SELECT 
@@ -26,6 +26,12 @@ const productController = {
       `;
       
       const params = [];
+      
+
+      if (seller_id) {
+        query += ` AND p.seller_id = ?`;
+        params.push(seller_id);
+      }
       
       if (search) {
         query += ` AND (p.title LIKE ? OR p.product_description LIKE ?)`;

@@ -22,11 +22,14 @@ const ProductComments = ({ productId }) => {
     fetchComments();
   }, [productId]);
 
+  
   const fetchComments = async () => {
     try {
       setLoading(true);
       const response = await commentsAPI.getProductComments(productId);
-      setComments(response.data.comments || []);
+      console.log('Fetched comments response:', response.data);
+      
+      setComments(response.data || []);
     } catch (error) {
       console.error('Error fetching comments:', error);
       setError('Failed to load comments');

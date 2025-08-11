@@ -8,17 +8,26 @@ require('dotenv').config();
 const app = express();
 const PORT = process.env.PORT || 3001;
 
+
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 100
+  windowMs: 15 * 60 * 1000, 
+  max: process.env.NODE_ENV === 'development' ? 500 : 100,
+  message: 'Too many requests from this IP, please try again later.',
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => {
+  
+    return req.path.startsWith('/uploads') || req.path === '/api/health';
+  }
 });
+
 app.use(helmet({
-  crossOriginResourcePolicy: false, // Disable this entirely
+  crossOriginResourcePolicy: false,
   crossOriginEmbedderPolicy: false,
-  contentSecurityPolicy: false, // Disable CSP for now to test
+  contentSecurityPolicy: false,
 }));
 
-app.use(limiter);
+
 app.use(cors({
   origin: ['http://localhost:3000', 'http://localhost:3001'],
   credentials: true,
@@ -27,6 +36,8 @@ app.use(cors({
   exposedHeaders: ['Content-Range', 'Accept-Ranges', 'Content-Length']
 }));
 
+
+app.use(limiter);
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use('/uploads/models', (req, res, next) => {

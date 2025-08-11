@@ -7,17 +7,21 @@ import ErrorBoundary from './ErrorBoundary';
 
 const Model = ({ url }) => {
   const fullUrl = getFullModelUrl(url);
+  const { scene, error } = useGLTF(fullUrl, true);
+  
   console.log('Loading 3D model from:', fullUrl);
-  const { scene } = useGLTF(fullUrl);
+  
+  if (error || !fullUrl) {
+    console.error('Error loading model or no valid URL:', error);
+    return <ErrorModel />;
+  }
   
   if (!scene) {
-    return (
-      <mesh>
-        <boxGeometry args={[2, 2, 2]} />
-        <meshStandardMaterial color="#ff6b6b" />
-      </mesh>
-    );
+    console.error('No scene loaded from model');
+    return <ErrorModel />;
   }
+  
+  scene.scale.set(1, 1, 1);
   
   return <primitive object={scene} />;
 };
@@ -27,6 +31,18 @@ const ErrorModel = () => {
     <mesh>
       <boxGeometry args={[2, 2, 2]} />
       <meshStandardMaterial color="#ff6b6b" />
+      <Html center>
+        <div style={{
+          color: 'white',
+          textAlign: 'center',
+          background: 'rgba(255,0,0,0.8)',
+          padding: '10px',
+          borderRadius: '4px',
+          fontSize: '12px'
+        }}>
+          Failed to load 3D model
+        </div>
+      </Html>
     </mesh>
   );
 };
@@ -36,12 +52,12 @@ const LoadingFallback = () => (
     <div style={{
       color: 'white',
       textAlign: 'center',
-      background: 'rgba(0,0,0,0.5)',
+      background: 'rgba(0,0,0,0.7)',
       padding: '20px',
       borderRadius: '8px'
     }}>
-      <Spinner animation="border" />
-      <div className="mt-2">Loading 3D Model...</div>
+      <Spinner animation="border" size="sm" />
+      <div className="mt-2" style={{ fontSize: '14px' }}>Loading 3D Model...</div>
     </div>
   </Html>
 );
@@ -52,8 +68,8 @@ const ThreeDViewer = ({ modelUrl, title }) => {
   const canvasRef = useRef();
 
   useEffect(() => {
-
     setError(null);
+    console.log('ThreeDViewer: Model URL changed to:', modelUrl);
   }, [modelUrl]);
 
   const handleFullscreen = () => {
@@ -64,7 +80,7 @@ const ThreeDViewer = ({ modelUrl, title }) => {
     return (
       <Card>
         <Card.Body className="text-center p-4">
-
+          <div style={{ fontSize: '48px', color: '#6c757d' }}>📦</div>
           <h5>No 3D Model Available</h5>
           <p className="text-muted">This product doesn't have a 3D model yet.</p>
         </Card.Body>
@@ -79,9 +95,12 @@ const ThreeDViewer = ({ modelUrl, title }) => {
           <h5 className="mb-0">3D Model Viewer</h5>
         </Card.Header>
         <Card.Body className="text-center p-4">
-         
+          <div style={{ fontSize: '48px', color: '#dc3545' }}>⚠️</div>
           <h5>Unable to Load 3D Model</h5>
-          <p className="text-muted">There was an error loading the 3D model.</p>
+          <p className="text-muted">
+            There was an error loading the 3D model.<br/>
+            <small>URL: {getFullModelUrl(modelUrl)}</small>
+          </p>
           <Button variant="primary" onClick={() => setError(null)}>
             Try Again
           </Button>
@@ -89,8 +108,6 @@ const ThreeDViewer = ({ modelUrl, title }) => {
       </Card>
     );
   }
-
-  console.log('ThreeDViewer received modelUrl:', modelUrl);
 
   const renderCanvas = (isFullscreenCanvas = false) => (
     <Canvas
@@ -103,9 +120,9 @@ const ThreeDViewer = ({ modelUrl, title }) => {
       }}
     >
       <Suspense fallback={<LoadingFallback />}>
-        <ambientLight intensity={0.5} />
-        <spotLight position={[10, 10, 10]} angle={0.15} penumbra={1} />
-        <pointLight position={[-10, -10, -10]} />
+        <ambientLight intensity={0.4} />
+        <spotLight position={[10, 10, 10]} angle={0.15} penumbra={1} intensity={1} />
+        <pointLight position={[-10, -10, -10]} intensity={0.5} />
         
         <ErrorBoundary fallback={<ErrorModel />}>
           <Model url={modelUrl} />
@@ -120,6 +137,8 @@ const ThreeDViewer = ({ modelUrl, title }) => {
           enableRotate={true}
           minDistance={1}
           maxDistance={20}
+          autoRotate={false}
+          autoRotateSpeed={0.5}
         />
       </Suspense>
     </Canvas>
@@ -150,9 +169,24 @@ const ThreeDViewer = ({ modelUrl, title }) => {
               color: 'white',
               padding: '8px 12px',
               borderRadius: '4px',
-              fontSize: '12px'
+              fontSize: '12px',
+              fontFamily: 'monospace'
             }}>
-              Click and drag to rotate, Scroll to zoom, Pinch to zoom
+              🖱️ Click & drag to rotate • 🔍 Scroll to zoom • 📱 Pinch to zoom
+            </div>
+            
+            <div style={{
+              position: 'absolute',
+              bottom: '10px',
+              right: '10px',
+              background: 'rgba(0,0,0,0.7)',
+              color: 'white',
+              padding: '4px 8px',
+              borderRadius: '4px',
+              fontSize: '10px',
+              fontFamily: 'monospace'
+            }}>
+              {modelUrl ? getFullModelUrl(modelUrl).split('/').pop() : 'No model'}
             </div>
           </div>
         </Card.Body>
@@ -165,7 +199,7 @@ const ThreeDViewer = ({ modelUrl, title }) => {
           left: 0,
           right: 0,
           bottom: 0,
-          backgroundColor: 'rgba(0,0,0,0.9)',
+          backgroundColor: 'rgba(0,0,0,0.95)',
           zIndex: 9999,
           display: 'flex',
           flexDirection: 'column'
@@ -176,11 +210,12 @@ const ThreeDViewer = ({ modelUrl, title }) => {
             color: 'white',
             display: 'flex',
             justifyContent: 'space-between',
-            alignItems: 'center'
+            alignItems: 'center',
+            backdropFilter: 'blur(10px)'
           }}>
             <h4>{title} - 3D Model</h4>
             <Button variant="light" onClick={handleFullscreen}>
-               Close
+              ✕ Close
             </Button>
           </div>
           

@@ -5,13 +5,31 @@ const BACKEND_BASE_URL = 'http://localhost:3001';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
+  timeout: 10000, // 10 second timeout
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-api.interceptors.request.use((config) => {
+const retryRequest = async (config, retries = 3) => {
+  for (let i = 0; i < retries; i++) {
+    try {
+      return await api.request(config);
+    } catch (error) {
+      if (i === retries - 1) throw error;
+      
+   
+      if (error.response?.status === 429) {
+        const delay = Math.pow(2, i) * 1000; // Exponential backoff
+        await new Promise(resolve => setTimeout(resolve, delay));
+      } else {
+        throw error;
+      }
+    }
+  }
+};
 
+api.interceptors.request.use((config) => {
   const sessionToken = localStorage.getItem('sessionToken');
   const jwtToken = localStorage.getItem('token');
   
@@ -19,15 +37,26 @@ api.interceptors.request.use((config) => {
   
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
-    console.log('Token sent with request:', token.substring(0, 20) + '...');
   }
+  
+  if (config.data instanceof FormData) {
+    delete config.headers['Content-Type'];
+  }
+  
   return config;
 });
 
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
     console.error('API Error:', error.response?.data || error.message);
+    
+
+    if (error.response?.status === 429 && !error.config._retry) {
+      error.config._retry = true;
+      await new Promise(resolve => setTimeout(resolve, 2000)); 
+      return api.request(error.config);
+    }
     
     if (error.response?.status === 401 || error.response?.status === 403) {
       localStorage.removeItem('token');
@@ -44,35 +73,26 @@ api.interceptors.response.use(
 
 export const getFullModelUrl = (modelPath) => {
   if (!modelPath) return null;
-  if (modelPath.startsWith('http')) return modelPath;
   
-  console.log('Converting model path:', modelPath);
-  
-  if (modelPath.startsWith('/uploads/models/')) {
-    const fullUrl = `${BACKEND_BASE_URL}${modelPath}`;
-    console.log('Full URL for uploads/models:', fullUrl);
-    return fullUrl;
-  }
-  if (modelPath.startsWith('/models/')) {
-    const fullUrl = `${BACKEND_BASE_URL}${modelPath}`;
-    console.log('Full URL for models:', fullUrl);
-    return fullUrl;
-  }
-  if (modelPath.startsWith('models/')) {
-    const fullUrl = `${BACKEND_BASE_URL}/${modelPath}`;
-    console.log('Full URL for models (no slash):', fullUrl);
-    return fullUrl;
+  if (modelPath.startsWith('http://') || modelPath.startsWith('https://')) {
+    return modelPath;
   }
   
-  const fullUrl = `${BACKEND_BASE_URL}${modelPath}`;
-  console.log('Default full URL:', fullUrl);
-  return fullUrl;
+  const cleanPath = modelPath.startsWith('/') ? modelPath.substring(1) : modelPath;
+  
+  return `${BACKEND_BASE_URL}/${cleanPath}`;
 };
 
-export const orderAPI = {
-  buyNow: (orderData) => api.post('/orders/buy-now', orderData),
-  getMyOrders: () => api.get('/orders/my-orders'),
-  getMySales: () => api.get('/orders/my-sales'),
+export const getFullImageUrl = (imagePath) => {
+  if (!imagePath) return null;
+  
+  if (imagePath.startsWith('http://') || imagePath.startsWith('https://')) {
+    return imagePath;
+  }
+  
+  const cleanPath = imagePath.startsWith('/') ? imagePath.substring(1) : imagePath;
+  
+  return `${BACKEND_BASE_URL}/${cleanPath}`;
 };
 
 export const authAPI = {
@@ -81,32 +101,28 @@ export const authAPI = {
   logout: () => api.post('/auth/logout'),
   getProfile: () => api.get('/auth/profile'),
   updateProfile: (profileData) => api.put('/auth/profile', profileData),
+  deleteAccount: (password) => api.delete('/auth/profile', { data: { password } }),
   checkSession: () => api.get('/auth/session/status'),
 };
 
 export const productsAPI = {
-  getAllProducts: (params = {}) => api.get('/products', { params }),
+  getAllProducts: (filters = {}) => api.get('/products', { params: filters }),
   getProduct: (id) => api.get(`/products/${id}`),
+  getProductStats: (id) => api.get(`/products/${id}/stats`),
+  createProduct: (productData) => api.post('/products', productData),
+  updateProduct: (id, productData) => api.put(`/products/${id}`, productData),
+  deleteProduct: (id) => api.delete(`/products/${id}`),
   getCategories: () => api.get('/products/categories'),
   getUserProducts: (userId) => api.get(`/products/user/${userId}`),
-  createProduct: (productData) => api.post('/products', productData, {
-    headers: {
-      'Content-Type': 'multipart/form-data',
-    },
-  }),
-  updateProduct: (id, productData) => api.put(`/products/${id}`, productData, {
-    headers: {
-      'Content-Type': 'multipart/form-data',
-    },
-  }),
-  deleteProduct: (id) => api.delete(`/products/${id}`),
 };
 
-export const favoritesAPI = {
-  getFavorites: () => api.get('/favorites'),
-  addToFavorites: (productId) => api.post('/favorites/add', { productId }),
-  removeFromFavorites: (productId) => api.delete(`/favorites/remove/${productId}`),
-  checkFavoriteStatus: (productId) => api.get(`/favorites/check/${productId}`),
+export const orderAPI = {
+  buyNow: (orderData) => {
+    console.log('API: Sending buy now request:', orderData);
+    return api.post('/orders/buy-now', orderData);
+  },
+  getMyOrders: () => api.get('/orders/my-orders'),
+  getMySales: () => api.get('/orders/my-sales'),
 };
 
 export const commentsAPI = {
@@ -114,6 +130,13 @@ export const commentsAPI = {
   addComment: (productId, commentData) => api.post(`/comments/product/${productId}`, commentData),
   updateComment: (commentId, commentData) => api.put(`/comments/${commentId}`, commentData),
   deleteComment: (commentId) => api.delete(`/comments/${commentId}`),
+};
+
+export const favoritesAPI = {
+  getUserFavorites: () => api.get('/favorites'),
+  addToFavorites: (productId) => api.post('/favorites/add', { productId }),
+  removeFromFavorites: (productId) => api.delete(`/favorites/remove/${productId}`),
+  checkFavoriteStatus: (productId) => api.get(`/favorites/check/${productId}`),
 };
 
 export { BACKEND_BASE_URL };

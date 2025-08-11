@@ -1,12 +1,11 @@
 import React, { useState } from 'react';
 import { Container, Row, Col, Card, Form, Button, Alert, Spinner } from 'react-bootstrap';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { authAPI } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 
 const Login = () => {
   const [formData, setFormData] = useState({
-    identifier: '', // Can be email or username
+    identifier: '', 
     password: ''
   });
   const [error, setError] = useState('');
@@ -25,7 +24,7 @@ const Login = () => {
       ...prev,
       [name]: value
     }));
-    setError(''); // Clear error when user types
+    setError(''); 
     setLockoutInfo(null);
   };
 
@@ -36,17 +35,16 @@ const Login = () => {
     setLockoutInfo(null);
     
     try {
-      console.log('Attempting login with:', { identifier: formData.identifier });
-      const response = await authAPI.login(formData);
+      console.log('Login: Attempting login with:', { identifier: formData.identifier });
       
-      console.log('Login response:', response.data);
-      localStorage.setItem('token', response.data.token);
-      if (response.data.sessionToken) {
-        localStorage.setItem('sessionToken', response.data.sessionToken);
+      const result = await login(formData);
+      
+      if (result.success) {
+        console.log('Login: Success, navigating to:', from);
+        setTimeout(() => {
+          navigate(from, { replace: true });
+        }, 100);
       }
-      
-      login(response.data.user);
-      navigate(from, { replace: true });
       
     } catch (err) {
       console.error('Login error:', err);
@@ -153,7 +151,6 @@ const Login = () => {
                 </p>
               </div>
               
-              {/* Security info */}
               <div className="mt-3">
                 <small className="text-muted">
                   <strong>Security Notice:</strong> Your account will be temporarily locked after 5 failed login attempts within 15 minutes.

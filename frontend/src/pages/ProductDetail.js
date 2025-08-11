@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Container, Row, Col, Card, Button, Badge, Spinner, Alert, Modal, Form } from 'react-bootstrap';
 import { useParams, useNavigate } from 'react-router-dom';
-import { productsAPI, orderAPI, favoritesAPI, BACKEND_BASE_URL } from '../services/api';
+import { productsAPI, orderAPI, favoritesAPI, getFullImageUrl } from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
 import ThreeDViewer from '../components/ThreeDViewer';
 import FallbackViewer from '../components/FallbackViewer';
@@ -29,12 +29,14 @@ const ProductDetail = () => {
     try {
       setLoading(true);
       const response = await productsAPI.getProduct(id);
+      
       if (!response.data.is_active) {
         setError('This product is no longer available (already sold)');
         return;
       }
       
       setProduct(response.data);
+      
       if (user) {
         checkFavoriteStatus();
       }
@@ -135,6 +137,7 @@ const ProductDetail = () => {
 
       alert(`Order successful! Order ID: ${response.data.orderId}`);
       setShowBuyModal(false);
+      
       navigate('/products');
       
     } catch (error) {
@@ -187,7 +190,7 @@ const ProductDetail = () => {
             <div style={{ height: '400px', overflow: 'hidden' }}>
               <Card.Img
                 variant="top"
-                src={product.images?.[selectedImage]?.image_url ? `${BACKEND_BASE_URL}${product.images[selectedImage].image_url}` : '/placeholder-image.jpg'}
+                src={getFullImageUrl(product.images?.[selectedImage]?.image_url) || '/placeholder-image.jpg'}
                 style={{ height: '100%', objectFit: 'cover' }}
               />
             </div>
@@ -197,7 +200,7 @@ const ProductDetail = () => {
                   {product.images.map((image, index) => (
                     <img
                       key={index}
-                      src={`${BACKEND_BASE_URL}${image.image_url}`}
+                      src={getFullImageUrl(image.image_url)}
                       alt={image.alt_text}
                       style={{
                         width: '60px',
@@ -211,12 +214,12 @@ const ProductDetail = () => {
                   ))}
                 </div>
               </Card.Body>
-            )}
+            )}now 
           </Card>
 
           {product.model_3d ? (
             <ThreeDViewer 
-              modelUrl={`${BACKEND_BASE_URL}${product.model_3d.model_url}`} 
+              modelUrl={product.model_3d.model_url} 
               title={product.title}
             />
           ) : (
@@ -239,7 +242,6 @@ const ProductDetail = () => {
               )}
             </div>
             
-            {/* View Counter Display */}
             <div className="text-muted small mb-3">
               <i className="fas fa-eye me-1"></i>
               {formatViewCount(product.views_count)} views
@@ -273,9 +275,18 @@ const ProductDetail = () => {
                     Login to Purchase
                   </Button>
                 )}
+                {user && user.id !== product.seller_id ? (
                 <Button variant="outline-secondary">
                   Message Seller
                 </Button>
+                ) : user && user.id == product.seller_id ?(
+                  <Button variant="secondary" size="lg" disabled>
+                    Your Product
+                  </Button>
+                ):( <Button variant="primary" size="lg" onClick={() => navigate('/login')}>
+                    Login to Message
+                  </Button>
+                )}
                 {user && user.id !== product.seller_id && (
                   <Button 
                     variant={isFavorited ? "danger" : "outline-danger"}
@@ -305,22 +316,17 @@ const ProductDetail = () => {
             <Card.Body>
               <p><strong>Seller:</strong> {product.seller_name}</p>
               <p><strong>Location:</strong> {product.city}, {product.country}</p>
-              <Button variant="outline-primary" size="sm">
-                View Seller Profile
-              </Button>
             </Card.Body>
           </Card>
         </Col>
       </Row>
 
-      {/* Comments Section */}
       <Row className="mt-4">
         <Col>
           <ProductComments productId={product.id} />
         </Col>
       </Row>
 
-      {/* Buy Now Modal */}
       <Modal show={showBuyModal} onHide={() => setShowBuyModal(false)} size="lg">
         <Modal.Header closeButton>
           <Modal.Title>Complete Your Purchase</Modal.Title>
@@ -329,7 +335,7 @@ const ProductDetail = () => {
           <Row className="mb-4">
             <Col md={4}>
               <img 
-                src={product.images?.[0]?.image_url ? `${BACKEND_BASE_URL}${product.images[0].image_url}` : '/placeholder-image.jpg'}
+                src={getFullImageUrl(product.images?.[0]?.image_url) || '/placeholder-image.jpg'}
                 alt={product.title}
                 className="img-fluid rounded"
               />

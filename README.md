@@ -44,7 +44,7 @@ A modern full-stack marketplace application featuring interactive 3D product vis
 
 
 # Clone the repository
-git clone https://github.com/your-username/sistemi3
+git clone https://github.com/sovag/sistemi3
 cd sistemi3
 
 # Install backend dependencies
